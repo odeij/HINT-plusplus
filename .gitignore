@@ -1,0 +1,59 @@
+# Datasets (large, download separately)
+datasets/
+s3dis-compressed/
+
+# Model checkpoints (large binary files)
+checkpoints/
+
+# Duplicate data inside Pointcept
+Pointcept/s3dis-compressed/
+
+# Build artifacts
+flash-attention/build/
+flash-attention/flash_attn.egg-info/
+flash-attention/csrc/cutlass/
+flash-attention/csrc/composable_kernel/
+flash-attention/third_party/
+**/*.egg-info/
+**/build/
+**/dist/
+
+# Python cache
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+*.py[cod]
+
+# Compiled CUDA extensions
+**/*.so
+**/*.o
+**/*.a
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Environment
+.env
+*.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs and outputs
+*.log
+**/log/
+**/logs/
+**/exp/
+**/work_dirs/
+
+# Wandb
+wandb/
