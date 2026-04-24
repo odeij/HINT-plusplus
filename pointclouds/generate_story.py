@@ -29,19 +29,19 @@ PRED_F   = ("/home/ahmad/frozen_teacher_project/repos/Pointcept"
 NAMES = ["ceiling","floor","wall","beam","column","window","door",
          "table","chair","sofa","bookcase","board","clutter"]
 CC = np.array([                        # class colours — tuned for white background
-    [110,110,125],  # 0  ceiling   dark slate
-    [155, 85, 20],  # 1  floor     warm brown
-    [ 75,130,200],  # 2  wall      medium blue      ← was near-white, now clearly visible
+    [100,100,105],  # 0  ceiling   medium slate (removed from view)
+    [160, 90, 22],  # 1  floor     warm brown
+    [ 72, 72, 80],  # 2  wall      dark grey
     [220, 95,  0],  # 3  beam      burnt orange
-    [135, 30,195],  # 4  column    deep purple
+    [140, 30,200],  # 4  column    deep purple
     [  0,175,195],  # 5  window    teal
     [225, 55,140],  # 6  door      hot pink
     [ 35, 85,185],  # 7  table     strong blue
-    [205, 15, 15],  # 8  chair     strong red
+    [210, 20, 20],  # 8  chair     strong red
     [ 25,165, 60],  # 9  sofa      strong green
-    [ 18, 50,155],  # 10 bookcase  dark blue
+    [ 18, 50,155],  # 10 bookcase  dark navy
     [155,190,  0],  # 11 board     olive-lime
-    [ 75, 75, 75],  # 12 clutter   dark grey
+    [135,100, 60],  # 12 clutter   warm tan  (distinct from dark-grey walls)
 ], dtype=np.uint8)
 
 PURPLE = np.array([130, 60, 220], dtype=np.uint8)   # mask blob
