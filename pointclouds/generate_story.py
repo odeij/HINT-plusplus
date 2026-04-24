@@ -204,11 +204,19 @@ def build_mask_region(coord, objects):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def stage1_rgb(coord, color, valid):
-    # Gamma darken: pulls light colours away from white so they're visible
-    rgb = color[valid].astype(np.float32) / 255.0
-    rgb = np.power(rgb, 1.6)          # gamma > 1 → darker midtones
-    rgb = (rgb * 255).astype(np.uint8)
-    return coord[valid], rgb
+    rgb = color[valid].astype(np.float32)
+
+    # Per-channel contrast stretch: map 2nd–98th percentile to 0–255
+    for ch in range(3):
+        lo, hi = np.percentile(rgb[:, ch], [2, 98])
+        if hi > lo:
+            rgb[:, ch] = np.clip((rgb[:, ch] - lo) / (hi - lo) * 255.0, 0, 255)
+
+    # Mild saturation boost (1.3×): pulls colors away from grey on white BG
+    lum = (0.299 * rgb[:, 0] + 0.587 * rgb[:, 1] + 0.114 * rgb[:, 2])[:, None]
+    rgb = np.clip(lum + 1.3 * (rgb - lum), 0, 255)
+
+    return coord[valid], rgb.astype(np.uint8)
 
 
 def stage2_pred(coord, pred, valid):
