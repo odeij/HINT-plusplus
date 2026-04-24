@@ -28,28 +28,28 @@ PRED_F   = ("/home/ahmad/frozen_teacher_project/repos/Pointcept"
 # ── S3DIS Semantic Classes ─────────────────────────────────────────────────────
 NAMES = ["ceiling","floor","wall","beam","column","window","door",
          "table","chair","sofa","bookcase","board","clutter"]
-CC = np.array([                        # class colours (uint8 RGB)
-    [153,153,166],  # 0  ceiling   blue-grey
-    [140, 97, 51],  # 1  floor     brown
-    [191,209,237],  # 2  wall      pale blue
-    [255,127, 13],  # 3  beam      orange
-    [153, 51,191],  # 4  column    purple
-    [ 26,217,230],  # 5  window    cyan
-    [242,102,166],  # 6  door      pink
-    [ 64,115,204],  # 7  table     blue
-    [230, 38, 38],  # 8  chair     red
-    [ 51,191, 89],  # 9  sofa      green
-    [ 26, 64,166],  # 10 bookcase  dark blue
-    [191,217, 26],  # 11 board     yellow-green
-    [102,102,102],  # 12 clutter   grey
+CC = np.array([                        # class colours — tuned for white background
+    [110,110,125],  # 0  ceiling   dark slate
+    [155, 85, 20],  # 1  floor     warm brown
+    [ 75,130,200],  # 2  wall      medium blue      ← was near-white, now clearly visible
+    [220, 95,  0],  # 3  beam      burnt orange
+    [135, 30,195],  # 4  column    deep purple
+    [  0,175,195],  # 5  window    teal
+    [225, 55,140],  # 6  door      hot pink
+    [ 35, 85,185],  # 7  table     strong blue
+    [205, 15, 15],  # 8  chair     strong red
+    [ 25,165, 60],  # 9  sofa      strong green
+    [ 18, 50,155],  # 10 bookcase  dark blue
+    [155,190,  0],  # 11 board     olive-lime
+    [ 75, 75, 75],  # 12 clutter   dark grey
 ], dtype=np.uint8)
 
-PURPLE = np.array([145, 80, 235], dtype=np.uint8)   # mask blob
-ORANGE = np.array([255,165,  0], dtype=np.uint8)    # click marker
+PURPLE = np.array([130, 60, 220], dtype=np.uint8)   # mask blob
+ORANGE = np.array([230,120,  0], dtype=np.uint8)    # click marker (darker on white)
 BG     = (1.0, 1.0, 1.0)                             # white background
 W, H   = 2560, 1440
 FOV    = 55.0
-PSIZE  = 1.1   # point size for standard renders
+PSIZE  = 1.3   # slightly larger points for white-bg visibility
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -204,7 +204,11 @@ def build_mask_region(coord, objects):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def stage1_rgb(coord, color, valid):
-    return coord[valid], color[valid]
+    # Gamma darken: pulls light colours away from white so they're visible
+    rgb = color[valid].astype(np.float32) / 255.0
+    rgb = np.power(rgb, 1.6)          # gamma > 1 → darker midtones
+    rgb = (rgb * 255).astype(np.uint8)
+    return coord[valid], rgb
 
 
 def stage2_pred(coord, pred, valid):
