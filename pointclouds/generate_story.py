@@ -46,7 +46,7 @@ CC = np.array([                        # class colours (uint8 RGB)
 
 PURPLE = np.array([145, 80, 235], dtype=np.uint8)   # mask blob
 ORANGE = np.array([255,165,  0], dtype=np.uint8)    # click marker
-BG     = (0.06, 0.06, 0.08)                         # near-black background
+BG     = (1.0, 1.0, 1.0)                             # white background
 W, H   = 2560, 1440
 FOV    = 55.0
 PSIZE  = 1.1   # point size for standard renders
@@ -449,10 +449,10 @@ def add_stage_label(arr, title, subtitle=None):
     draw = ImageDraw.Draw(img)
     bold, reg, sm = _fonts()
     x, y = 32, H - 95
-    for dx, dy, col in [(2,2,(0,0,0)), (0,0,(235,235,235))]:
+    for dx, dy, col in [(1,1,(200,200,200)), (0,0,(20,20,20))]:
         draw.text((x+dx, y+dy), title, font=bold, fill=col)
     if subtitle:
-        for dx, dy, col in [(2,2,(0,0,0)), (0,0,(165,165,165))]:
+        for dx, dy, col in [(1,1,(200,200,200)), (0,0,(80,80,80))]:
             draw.text((x+dx, y+42+dy), subtitle, font=reg, fill=col)
     return np.array(img)
 
@@ -473,7 +473,7 @@ def add_legend(arr, class_ids):
         y = y0 + row*(sw+pad)
         r,g,b = CC[c].tolist()
         draw.rectangle([x, y, x+sw, y+sw], fill=(r,g,b))
-        for dx, dy, fc in [(1,1,(0,0,0)), (0,0,(215,215,215))]:
+        for dx, dy, fc in [(1,1,(200,200,200)), (0,0,(30,30,30))]:
             draw.text((x+sw+4+dx, y+1+dy), NAMES[c], font=sm, fill=fc)
     return np.array(img)
 
@@ -530,7 +530,7 @@ def draw_click_markers(arr, objects, eye, lookat, up):
 
         # Label
         label = obj["name"].split("→")[1].strip()
-        for dx, dy, fc in [(2, 2, (0,0,0)), (0, 0, (255, 215, 70))]:
+        for dx, dy, fc in [(1, 1, (200,200,200)), (0, 0, (180, 80, 0))]:
             draw.text((px+R+12+dx, py-14+dy), f"← {label}", font=sm, fill=fc)
 
     return np.array(img)
