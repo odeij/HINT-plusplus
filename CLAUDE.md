@@ -28,7 +28,8 @@ Core contribution: "We enable zero-shot safe deployment of interactive TTA to un
 - δₖ(t): correction signal for class k at time t
 - m̂ₖ = β₁·mₖ + (1-β₁)·δₖ, bias-corrected: m̂ₖ/(1-β₁^t)
 - v̂ₖ = β₂·vₖ + (1-β₂)·δₖ², bias-corrected: v̂ₖ/(1-β₂^t)
-- Adaptive safety weight = η · m̂ₖ / (√v̂ₖ + ε)
+- ηₖ: per-class teacher-confidence ceiling, computed in `experiments/phase2_init/`, loaded as a buffer in `src/safety/adaptive_moments.py`
+- Adaptive safety weight = η · ηₖ · m̂ₖ / (√v̂ₖ + ε)   (η is a global rate scalar; ηₖ is per-class)
 - β₁ < β₂ (ASYMMETRIC by design — safety needs different smoothing)
 
 ## Coding Conventions
