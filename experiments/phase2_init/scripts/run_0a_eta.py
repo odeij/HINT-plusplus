@@ -12,6 +12,7 @@ Inputs are streamed room by room — no full Area-5 tensor is held in memory.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import os
 from pathlib import Path
@@ -24,7 +25,10 @@ import numpy as np
 import pandas as pd
 from scipy.stats import pearsonr
 
-PROB_DIR = Path(
+# Default location of the frozen-teacher per-room outputs. Override on
+# the command line with --prob-dir if your Pointcept results live
+# somewhere else.
+DEFAULT_PROB_DIR = Path(
     "/home/ahmad/frozen_teacher_project/repos/Pointcept/exp/sonata/"
     "semseg-sonata-s3dis/result"
 )
@@ -39,7 +43,10 @@ CLASS_NAMES = [
 NUM_CLASSES = 13
 EPS = 1e-8
 
-# Per-class IoU on Area 5 from Phase 1 baseline (test set, mIoU = 75.41%).
+# Source: experiments/phase1_baseline/README.md (68-room
+# evaluation). Replace with load from per_class_iou.json
+# once save_gt_files.py has been verified and re-run to
+# recover the 9 missing gt rooms.
 IOU = np.array([
     0.9543, 0.9843, 0.8879, 0.0019, 0.5895,
     0.6745, 0.7978, 0.8594, 0.9110, 0.8038,
@@ -47,19 +54,31 @@ IOU = np.array([
 ])
 
 
-def compute_eta() -> tuple[np.ndarray, np.ndarray, int]:
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[1])
+    p.add_argument(
+        "--prob-dir",
+        type=Path,
+        default=DEFAULT_PROB_DIR,
+        help=("Directory containing 68 Area_5-*_prob.npy files "
+              f"(default: {DEFAULT_PROB_DIR})"),
+    )
+    return p.parse_args()
+
+
+def compute_eta(prob_dir: Path) -> tuple[np.ndarray, np.ndarray, int]:
     """Stream the 68 _prob.npy files; return (eta_k, mean_H_k, n_rooms)."""
     sum_H = np.zeros(NUM_CLASSES, dtype=np.float64)
     count = np.zeros(NUM_CLASSES, dtype=np.int64)
 
-    prob_files = sorted(f for f in os.listdir(PROB_DIR) if f.endswith("_prob.npy"))
+    prob_files = sorted(f for f in os.listdir(prob_dir) if f.endswith("_prob.npy"))
     if len(prob_files) != 68:
         raise RuntimeError(
             f"Expected 68 _prob.npy files (Area 5 rooms), got {len(prob_files)}"
         )
 
     for fname in prob_files:
-        prob = np.load(PROB_DIR / fname).astype(np.float32)
+        prob = np.load(prob_dir / fname).astype(np.float32)
         # Row-normalize accumulated softmax -> probability simplex.
         row_sum = prob.sum(axis=1, keepdims=True).clip(min=1e-12)
         p = prob / row_sum                                          # (N, 13)
@@ -162,8 +181,9 @@ def verify(eta: np.ndarray) -> None:
 
 
 def main() -> None:
-    print(f"Reading _prob.npy files from {PROB_DIR}")
-    eta, mean_H, n = compute_eta()
+    args = parse_args()
+    print(f"Reading _prob.npy files from {args.prob_dir}")
+    eta, mean_H, n = compute_eta(args.prob_dir)
     print(f"Processed {n} rooms")
     save_outputs(eta, mean_H)
     print("\nPer-class results (sorted by eta_k desc):")

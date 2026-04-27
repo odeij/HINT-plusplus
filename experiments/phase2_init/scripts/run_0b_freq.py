@@ -20,6 +20,7 @@ between r_k and u_k is enforced as a hard gate, not just reported.
 """
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
@@ -31,7 +32,9 @@ import numpy as np
 import pandas as pd
 from scipy.stats import pearsonr
 
-S3DIS_ROOT = Path(
+# Default location of the voxelized S3DIS training split. Override on
+# the command line with --s3dis-root if your dataset lives elsewhere.
+DEFAULT_S3DIS_ROOT = Path(
     "/home/ahmad/Desktop/HINT++/s3dis-compressed/s3dis-compressed"
 )
 TRAIN_AREAS = ["Area_1", "Area_2", "Area_3", "Area_4", "Area_6"]
@@ -46,13 +49,26 @@ NUM_CLASSES = 13
 ALPHA = 0.5
 
 
-def count_voxels() -> tuple[np.ndarray, int, int]:
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[1])
+    p.add_argument(
+        "--s3dis-root",
+        type=Path,
+        default=DEFAULT_S3DIS_ROOT,
+        help=("Root of the voxelized S3DIS dataset, containing "
+              f"Area_{{1,2,3,4,6}}/<room>/segment.npy "
+              f"(default: {DEFAULT_S3DIS_ROOT})"),
+    )
+    return p.parse_args()
+
+
+def count_voxels(s3dis_root: Path) -> tuple[np.ndarray, int, int]:
     """Sum voxel counts per class across all training rooms."""
     counts = np.zeros(NUM_CLASSES, dtype=np.int64)
     n_rooms = 0
     n_voxels = 0
     for area in TRAIN_AREAS:
-        area_dir = S3DIS_ROOT / area
+        area_dir = s3dis_root / area
         if not area_dir.is_dir():
             raise RuntimeError(f"Missing area directory: {area_dir}")
         for room in sorted(p for p in area_dir.iterdir() if p.is_dir()):
@@ -216,8 +232,10 @@ def report_signal_diagnostics(freq: np.ndarray, eta: np.ndarray) -> None:
 
 
 def main() -> None:
-    print(f"Counting voxels in {len(TRAIN_AREAS)} training areas...")
-    counts, n_rooms, n_voxels = count_voxels()
+    args = parse_args()
+    print(f"Counting voxels in {len(TRAIN_AREAS)} training areas under "
+          f"{args.s3dis_root}...")
+    counts, n_rooms, n_voxels = count_voxels(args.s3dis_root)
     print(f"Processed {n_rooms} rooms, {n_voxels:,} labelled voxels")
     freq = counts / counts.sum()
 
