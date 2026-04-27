@@ -59,6 +59,13 @@ tests/            — Unit + integration tests per phase
 - Experiment results go to `experiments/results/{experiment_id}/`
 - All experiments: ≥3 seeds, report mean ± std
 
+## Known Open Issues
+
+Surfaced during research validation; tracked here so they are not forgotten as later phases land. See `experiments/phase2_init/RESEARCH_VALIDATION.md` for the full analysis.
+
+- **Phase 2 sparse correction regime — CV > 1 for sofa, beam, column, window, board in 100-step synthetic experiments.** Meta-learning in Phase 6 requires either longer adaptation horizon or variance regularizer for sparse classes. Not a Phase 3 blocker.
+- **Phase 4 running-max projection requires stable per-point identity across calls.** Voxelization strategy must preserve point identity or Phase 4 must define a spatial hashing scheme. Must be resolved in Phase 4 design session.
+
 ## Success Criteria (Phase 7)
 - Violations <15% on unseen domains WITHOUT tuning
 - HINT-3D source thresholds show >40% violations (establishes problem)
