@@ -63,7 +63,12 @@ def parse_args() -> argparse.Namespace:
 
 
 def count_voxels(s3dis_root: Path) -> tuple[np.ndarray, int, int]:
-    """Sum voxel counts per class across all training rooms."""
+    """Sum voxel counts per class across all training rooms.
+
+    Reports per-area dropped-voxel counts at the data-quality boundary.
+    The freq_k.sum() ~= 1 verification gate catches catastrophic masking;
+    this print surfaces subtler issues (e.g. a room with stray label IDs).
+    """
     counts = np.zeros(NUM_CLASSES, dtype=np.int64)
     n_rooms = 0
     n_voxels = 0
@@ -71,14 +76,21 @@ def count_voxels(s3dis_root: Path) -> tuple[np.ndarray, int, int]:
         area_dir = s3dis_root / area
         if not area_dir.is_dir():
             raise RuntimeError(f"Missing area directory: {area_dir}")
+        area_total = 0
+        area_dropped = 0
         for room in sorted(p for p in area_dir.iterdir() if p.is_dir()):
             seg = np.load(room / "segment.npy").reshape(-1)
             # Defensive: only count valid labels.
             mask = (seg >= 0) & (seg < NUM_CLASSES)
+            area_total += int(seg.size)
+            area_dropped += int((~mask).sum())
             n_voxels += int(mask.sum())
             counts += np.bincount(seg[mask].astype(np.int64),
                                   minlength=NUM_CLASSES)
             n_rooms += 1
+        pct = 100.0 * area_dropped / max(area_total, 1)
+        print(f"  {area}: {area_total:>11,} voxels, "
+              f"{area_dropped:>7,} dropped ({pct:.4f}%)")
     return counts, n_rooms, n_voxels
 
 

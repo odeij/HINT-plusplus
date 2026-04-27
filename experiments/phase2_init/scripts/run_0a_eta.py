@@ -71,7 +71,10 @@ def compute_eta(prob_dir: Path) -> tuple[np.ndarray, np.ndarray, int]:
     sum_H = np.zeros(NUM_CLASSES, dtype=np.float64)
     count = np.zeros(NUM_CLASSES, dtype=np.int64)
 
-    prob_files = sorted(f for f in os.listdir(prob_dir) if f.endswith("_prob.npy"))
+    prob_files = sorted(
+        f for f in os.listdir(prob_dir)
+        if f.startswith("Area_5-") and f.endswith("_prob.npy")
+    )
     if len(prob_files) != 68:
         raise RuntimeError(
             f"Expected 68 _prob.npy files (Area 5 rooms), got {len(prob_files)}"
@@ -195,3 +198,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
