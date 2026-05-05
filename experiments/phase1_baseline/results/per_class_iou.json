@@ -1,0 +1,33 @@
+{
+  "class_names": [
+    "ceiling",
+    "floor",
+    "wall",
+    "beam",
+    "column",
+    "window",
+    "door",
+    "table",
+    "chair",
+    "sofa",
+    "bookcase",
+    "board",
+    "clutter"
+  ],
+  "iou": {
+    "ceiling": 0.952733,
+    "floor": 0.984788,
+    "wall": 0.892078,
+    "beam": 0.001923,
+    "column": 0.577537,
+    "window": 0.643234,
+    "door": 0.775895,
+    "table": 0.867959,
+    "chair": 0.904887,
+    "sofa": 0.803782,
+    "bookcase": 0.847584,
+    "board": 0.856677,
+    "clutter": 0.664152
+  },
+  "miou": 75.18
+}
