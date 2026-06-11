@@ -5,6 +5,22 @@ description: Configure, launch, and analyze HINT++ experiments. Use when setting
 
 # HINT++ Experiment Runner
 
+## Completed milestones (keep this fresh)
+
+| Experiment | Status | Headline result | Artefacts |
+|---|---|---|---|
+| Phase 1 — Frozen Teacher (S3DIS Area-5 test) | ✅ | mIoU **75.41%** | `checkpoints/model_best.pth`, `experiments/phase1_baseline/results/per_class_iou.json` |
+| Phase 2 — Adaptive Moment init | ✅ | η_k, v_k buffers computed | `experiments/phase2_init/results/` |
+| Cross-domain S3DIS → ScanNet zero-shot | ✅ | mIoU **42.03%** (gap −33.38 pp); conf>0.7 triages nothing | `experiments/cross_domain/` |
+
+**Reusable cross-domain assets** (for future ablations / SemanticKITTI + nuScenes runs):
+- Inference: `experiments/cross_domain/scripts/run_scannet_zero_shot.py` — loads Sonata S3DIS config, swaps the test dataset, runs Phase-1 TTA protocol, saves per-scene `_pred.npy` + `_prob.npy`.
+- Analysis: `experiments/cross_domain/scripts/run_scannet_analysis.py` — per-class freq / conf / η_k / IoU with the ScanNet→S3DIS label map.
+- Figures: `experiments/cross_domain/scripts/make_figures.py`.
+- Run with `/home/ahmad/anaconda3/envs/frozen_teacher/bin/python` (has torch_scatter/spconv/flash-attn; Pointcept imported via `sys.path`, not pip-installed).
+- ScanNet data: `/media/ahmad/One Touch/HINT++/data/scannet/{raw,processed}/` (external drive — main disk is full). Large prediction outputs are symlinked to the external drive.
+- The same script pattern extends to SemanticKITTI and nuScenes for the Phase 7 zero-shot eval — swap the dataset type and the label map.
+
 ## Experiment Setup Protocol
 
 1. Create Hydra config: `experiments/configs/{exp_name}.yaml`
@@ -28,6 +44,8 @@ This is the most important experiment. Run it FIRST before any ablations.
 | HINT-3D source thresholds | ~45-50% | None (but unsafe) |
 | HINT-3D tuned per domain | ~18-20% | ~2 weeks per domain |
 | HINT++ (ours) | Target <15% | None |
+
+**Supporting evidence already collected (cross-domain validation):** On ScanNet zero-shot, the frozen teacher drops to 42.03% mIoU (−33.38 pp) and the HINT-3D global confidence threshold (conf > 0.7) fails to flag a single failure class — every wrong class has mean conf > 0.79. This pre-confirms the "HINT-3D source thresholds are unsafe" baseline qualitatively. The Phase 7 experiment must still quantify it as a *violation rate*, but the mechanism is already demonstrated.
 
 **Success criteria (all must be YES):**
 - [ ] Violations <15% on all three target domains without tuning
