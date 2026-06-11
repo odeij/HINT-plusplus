@@ -14,7 +14,8 @@ record in `docs/decisions/` BEFORE code. Tests first; safety failures are BLOCKI
   `checkpoints/model_best.pth` (epoch 29). DO NOT modify.
 - ✅ **Phase 2 init artefacts.** 0A η_k (entropy ceiling), 0B v_k(0)=0.5r_k+0.5u_k, 0C `phase2_init.pt`
   (frozen 2026-04-27, source-domain-only). Scripts in `experiments/phase2_init/scripts/`.
-- 🔄 **Phase 2 estimator** — `src/safety/adaptive_moments.py`, R1 refactor (λ-mixture, outcome δ, signed w).
+- ✅ **Phase 2 estimator** — `src/safety/adaptive_moments.py`, R1 (λ-mixture on event-indexed Nₖ,
+  outcome δ∈{−1,0,+1}, signed w). 29 tests incl. worked checks; safety-auditor PASS (2026-06-12).
 - ✅ **Cross-domain S3DIS→ScanNet zero-shot.** 312 scenes, **42.03% mIoU (−33.38 pp)**. ceiling/beam/
   column/board: IoU 0 at conf > 0.78. Global conf>0.7 triages nothing. See
   `experiments/cross_domain/SCANNET_ZERO_SHOT_FINDINGS.md` — re-read before any safety/threshold work.

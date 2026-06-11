@@ -33,3 +33,14 @@ a skill, (4) stated with the trigger context in which to apply it.
   substituted, asserted ±10%) before trusting any downstream behavior; this is what caught F3.
   Trigger: implementing or refactoring any estimator. Check: the worked numbers appear in the test
   file with the derivation in a comment.
+- **L7 — A doc that references a file vouches for its existence.** (from the R1 bootstrap
+  verification) Marking a planned artifact as existing (or citing it in present tense) sends future
+  sessions hunting for files that aren't there — the bootstrap's only CRITICAL verification finding
+  was exactly this. Trigger: writing any doc/skill/spec that names a path. Check: `test -e` every
+  referenced path; what doesn't exist gets an explicit planned marker and the event that creates it.
+- **L8 — Per-entity counts in a spec mean per-entity indexing everywhere.** (from the Phase 2 R1
+  refactor) A spec written in scalar notation (mₖ = β₁mₖ + (1−β₁)δ) hid a real design choice: with
+  per-class Nₖ and δ∈{±1}, the EMAs must be event-indexed — updates masked to the event's class,
+  every β-exponent and λ computed from Nₖ, never from global time, and no decay of untouched
+  entities. Trigger: implementing any per-class/per-entity estimator from scalar-notation equations.
+  Check: ask "what advances this index?" for every exponent and mixture weight before coding.

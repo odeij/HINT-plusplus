@@ -17,8 +17,8 @@ NOT a benchmark-dominance paper: every work item traces to safety-without-tuning
 imperfect-humans, or the risk certificate (memo §1) — anything else is scope creep.
 
 ## Tech Stack & Environment
-- PyTorch, PointTransformer v3, Sonata. Hydra (wiring lands Phase 6; `configs/safety.yaml` — created with
-  the Phase 2 R1 refactor — is the canonical hyperparameter source). Weights & Biases, pytest.
+- PyTorch, PointTransformer v3, Sonata. Hydra (wiring lands Phase 6; `configs/safety.yaml` is the
+  canonical hyperparameter source). Weights & Biases, pytest.
 - Tests: `PYTHONPATH=. /home/ahmad/anaconda3/bin/python -m pytest tests/ -q` (base env has pytest + torch).
   GPU experiment scripts: `/home/ahmad/anaconda3/envs/frozen_teacher/bin/python` (spconv/flash-attn, NO pytest).
   ScanNet data + large predictions: external drive `/media/ahmad/One Touch/HINT++/data/` (symlinked).
@@ -56,8 +56,8 @@ Every paper claim must trace to a table, figure, or one of these statements.
 ## Status (2026-06-12)
 - ✅ Phase 1 Frozen Teacher: `checkpoints/model_best.pth` (epoch 29), Area-5 test mIoU 75.41%. DO NOT modify.
 - ✅ Phase 2 init artefacts: 0A ηₖ, 0B vₖ(0), 0C `phase2_init.pt` (frozen 2026-04-27, source-domain-only).
-- 🔄 Phase 2 estimator `src/safety/adaptive_moments.py` (19 tests): pre-R1 on disk; the R1 refactor
-  (λ-mixture, outcome δ, signed w) is the next commit, branch `feat/phase2-r1`.
+- ✅ Phase 2 estimator `src/safety/adaptive_moments.py` — R1 (λ-mixture, event-indexed Nₖ, outcome δ,
+  signed w); 29 tests incl. the memo §3 worked checks; safety-auditor PASS. `configs/safety.yaml` exists.
 - ✅ Cross-domain S3DIS→ScanNet zero-shot: 42.03% mIoU (gap −33.38 pp); ceiling/beam/column/board are
   overconfident-wrong (conf>0.78, IoU 0) — global conf>0.7 triages nothing. `experiments/cross_domain/`.
 - ⬅ Phase 3 Permission Field next. ⬜ Phases 4–7, harness/, paper/ not started.
@@ -99,7 +99,7 @@ new-experiment freeze Oct 17 · all-experiment freeze Oct 24 · submit ≥48 h e
 ```
 ✅ src/safety/          adaptive_moments.py (Phase 2)      ⬜ src/{models,memory,adaptation,utils}/
 ✅ tests/               test_adaptive_moments.py           ⬜ harness/   runner, adapters, simulator
-⬜ configs/             safety.yaml — lands with the Phase 2 R1 refactor   ⬜ paper/  sections|figures|tables
+✅ configs/             safety.yaml (canonical params)     ⬜ paper/     sections|figures|tables
 ✅ experiments/         phase1_baseline/ phase2_init/ cross_domain/ results/   ⬜ experiments/configs/
 ✅ docs/                memo · decisions/ · experiments/registry.md · objections/ledger.md · reviews/ ·
                         LESSONS.md · changelog.md
