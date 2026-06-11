@@ -1,0 +1,10 @@
+# Canonical safety hyperparameters — memo §3 (docs/HINTpp_Design_Memo_R1_2026-06-11.md).
+# Hydra wiring lands in Phase 6; until then constructors carry these values as defaults and
+# tests/test_adaptive_moments.py::test_config_matches_constructor_defaults keeps the two in sync.
+# Phase 3/4 extend this group with the gate constants (alpha, theta_hi, theta_lo, c) when they land.
+safety:
+  beta1: 0.7    # trust EMA, ~3.3-event effective window (asserted beta1 < beta2 in __init__)
+  beta2: 0.95   # noise EMA, ~20-event effective window
+  eps: 1.0e-8
+  eta: 1.0      # global rate scalar
+  n0: 5.0       # prior pseudo-count for the lambda mixture, lambda_k = n0 / (n0 + N_k)
