@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR:-/home/ahmad/Desktop/HINT++}\"/.claude/hooks/run-mapped-tests.sh",
+            "timeout": 300,
+            "statusMessage": "Running mapped pytest target…"
+          }
+        ]
+      }
+    ]
+  }
+}

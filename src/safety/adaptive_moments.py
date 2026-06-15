@@ -1,35 +1,34 @@
-"""HINT++ Phase 2: Adaptive Moment Safety Signals.
+"""HINT++ Phase 2: Adaptive Moment Safety Signals (R1 trust estimator).
 
-Per-class safety sensitivity via Adam-style moment estimation on the
-human correction signal delta_k(t).
+Per-class trust state from human correction OUTCOMES. Spec: memo §3
+(docs/HINTpp_Design_Memo_R1_2026-06-11.md). Supersedes the pre-R1 estimator,
+which applied 1/(1-beta^t) bias correction to a prior-initialized v (flaw F3).
 
-Correspondence:
-    delta_k(t)  - correction signal               (like Adam's gradient g)
-    m_hat_k     - correction consistency           (first moment, bias-corrected)
-    v_hat_k     - correction noise                 (second moment, bias-corrected)
-    eta_k       - per-class confidence ceiling     (loaded from phase2_init.pt)
-    eta         - global learning rate scalar      (default 1.0)
-    w_k(t)      - safety weight at time t
+Semantics (F4): delta_k(t) in {+1, -1} is the OUTCOME of a correction event on
+class k, emitted after the gated update (+1 = local error on the corrected
+region decreased; -1 = it did not, or the region was re-corrected within T_rc
+events). delta_k = 0 means "no event for class k on this call". The EMAs are
+EVENT-indexed: a class without an event is untouched, and all per-class
+statistics advance on N_k (that class's cumulative event count), never on the
+global call counter t.
 
-Update rules (asymmetric by design: 0 < beta1 < beta2 < 1):
-    m_k(t)   = beta1 * m_k(t-1) + (1 - beta1) * delta_k(t)
-    v_k(t)   = beta2 * v_k(t-1) + (1 - beta2) * delta_k(t)^2
-    m_hat_k  = m_k(t) / (1 - beta1**t)
-    v_hat_k  = v_k(t) / (1 - beta2**t)
-    w_k(t)   = eta * eta_k * m_hat_k / (sqrt(v_hat_k) + eps)
+Update rules per event (0 < beta1 < beta2 < 1, asserted; beta1=0.7 ~ 3.3-event
+window, beta2=0.95 ~ 20-event window — reasoned in events, not wall clock, F5):
+    m_k = beta1 * m_k + (1 - beta1) * delta_k        (zero-init)
+    v_k = beta2 * v_k + (1 - beta2) * delta_k**2     (zero-init)
+    m~_k = m_k / (1 - beta1**N_k)    zero-init bias-corrected internals;
+    v~_k = v_k / (1 - beta2**N_k)    bias correction touches ONLY zero-init state
+    lambda_k = n0 / (n0 + N_k)       prior pseudo-count mixture, n0 = 5
+    m^_k = (1 - lambda_k) * m~_k                       (prior mean 0)
+    v^_k = lambda_k * v_k(0) + (1 - lambda_k) * v~_k   (v_k(0) = 0.5 r_k + 0.5 u_k, Sub-step 0B)
+    w_k  = eta * eta_k * m^_k / (sqrt(v^_k) + eps)     SIGNED
 
-Initialization (loaded from phase2_init.pt, produced by Sub-step 0C):
-    m_k(0)   = 0           cold start; bias correction handles t=1
-    v_k(0)   = principled prior from rarity + teacher uncertainty
-    eta_k    = per-class teacher confidence ceiling (Sub-step 0A)
+Worked check (memo §3, asserted in tests): first event, delta=+1, n0=5,
+v_k(0)=0.6  =>  m~=1, lambda=5/6, m^=1/6, v^=2/3, w ~= 0.204 * eta * eta_k.
+Cold start: N_k = 0  =>  lambda_k = 1  =>  w_k = 0 EXACTLY.
 
-The cold-start identity at t=1 with m_k(0)=0:
-    m_hat_k = (1-beta1)*delta / (1-beta1) = delta exactly.
-The first correction lands in m_hat_k with weight 1.0; downstream phases
-can rely on this without a separate "warm-up" code path.
-
-Phase 6 (Hydra integration) supplies init_path via config; for now
-callers (tests, scripts, notebooks) pass it explicitly.
+Hyperparameters: configs/safety.yaml is the canonical source (Hydra wiring
+lands in Phase 6); constructor defaults mirror it and a test keeps them in sync.
 """
 from __future__ import annotations
 
@@ -40,7 +39,7 @@ from torch import Tensor, nn
 
 
 class AdaptiveMomentSafety(nn.Module):
-    """Per-class safety weights via Adam-style moment estimation."""
+    """Per-class SIGNED safety weights via the R1 lambda-mixture trust estimator."""
 
     def __init__(
         self,
@@ -50,6 +49,7 @@ class AdaptiveMomentSafety(nn.Module):
         beta2: float = 0.95,
         eps: float = 1e-8,
         eta: float = 1.0,
+        n0: float = 5.0,
     ) -> None:
         super().__init__()
 
@@ -71,12 +71,15 @@ class AdaptiveMomentSafety(nn.Module):
             raise ValueError(f"eps must be positive, got {eps}")
         if eta <= 0:
             raise ValueError(f"eta must be positive, got {eta}")
+        if n0 <= 0:
+            raise ValueError(f"n0 must be positive, got {n0}")
 
         self.num_classes = num_classes
         self.beta1 = beta1
         self.beta2 = beta2
         self.eps = eps
         self.eta = eta
+        self.n0 = n0
 
         path = Path(init_path)
         if not path.is_file():
@@ -84,79 +87,112 @@ class AdaptiveMomentSafety(nn.Module):
         init = torch.load(path, weights_only=False)
 
         eta_k = init["eta_k"].to(torch.float32)
-        m_k_0 = init["m_k_0"].to(torch.float32)
         v_k_0 = init["v_k_0"].to(torch.float32)
 
         expected = (num_classes,)
-        if eta_k.shape != expected or m_k_0.shape != expected \
-                or v_k_0.shape != expected:
+        if eta_k.shape != expected or v_k_0.shape != expected:
             raise ValueError(
                 f"phase2_init.pt tensors must have shape {expected}, got "
-                f"eta_k={tuple(eta_k.shape)}, "
-                f"m_k_0={tuple(m_k_0.shape)}, "
-                f"v_k_0={tuple(v_k_0.shape)}"
+                f"eta_k={tuple(eta_k.shape)}, v_k_0={tuple(v_k_0.shape)}"
             )
         if (v_k_0 <= 0).any():
             raise ValueError(
                 f"v_k(0) must be strictly positive (sqrt is taken in "
                 f"forward); min v_k_0 = {float(v_k_0.min()):.3e}"
             )
+        if "m_k_0" in init and bool((init["m_k_0"] != 0).any()):
+            raise ValueError(
+                "R1 requires m_k(0) = 0 (memo §3); phase2_init.pt carries a "
+                "nonzero m_k_0, which belongs to the retired pre-R1 estimator."
+            )
 
-        # eta_k is the per-class confidence ceiling: immutable prior.
+        # Immutable per-class priors.
         self.register_buffer("eta_k", eta_k)
-        # Running moments. m_k_init / v_k_init kept for reset().
-        self.register_buffer("m_k", m_k_0.clone())
-        self.register_buffer("v_k", v_k_0.clone())
-        self.register_buffer("m_k_init", m_k_0.clone())
-        self.register_buffer("v_k_init", v_k_0.clone())
-        # Step counter; 0-d long tensor so it persists in state_dict.
+        self.register_buffer("v_k_0", v_k_0)
+        # Zero-init event-indexed EMAs (the lambda mixture injects the prior;
+        # the prior never decays inside the EMA — flaw F3).
+        self.register_buffer("m_k", torch.zeros(num_classes))
+        self.register_buffer("v_k", torch.zeros(num_classes))
+        # Per-class cumulative event counts (drives lambda_k and the
+        # bias-correction exponents) and a global call counter (diagnostics).
+        self.register_buffer("N_k", torch.zeros(num_classes, dtype=torch.long))
         self.register_buffer("t", torch.tensor(0, dtype=torch.long))
 
+    @property
+    def lambda_k(self) -> Tensor:
+        """Prior weight lambda_k = n0 / (n0 + N_k); 1 at cold start, -> 0 with evidence."""
+        return self.n0 / (self.n0 + self.N_k.to(torch.float32))
+
+    @property
+    def m_hat(self) -> Tensor:
+        """Damped trust mean m^_k = (1 - lambda_k) * m~_k; exactly 0 where N_k = 0."""
+        n = self.N_k.to(torch.float32)
+        has_events = self.N_k > 0
+        denom = (1.0 - torch.pow(self.beta1, n)).clamp_min(1e-12)
+        m_tilde = torch.where(has_events, self.m_k / denom, torch.zeros_like(self.m_k))
+        return (1.0 - self.lambda_k) * m_tilde
+
+    @property
+    def v_hat(self) -> Tensor:
+        """Mixed second moment v^_k = lambda_k * v_k(0) + (1 - lambda_k) * v~_k."""
+        n = self.N_k.to(torch.float32)
+        has_events = self.N_k > 0
+        denom = (1.0 - torch.pow(self.beta2, n)).clamp_min(1e-12)
+        v_tilde = torch.where(has_events, self.v_k / denom, torch.zeros_like(self.v_k))
+        lam = self.lambda_k
+        return lam * self.v_k_0 + (1.0 - lam) * v_tilde
+
     def forward(self, delta: Tensor) -> Tensor:
-        """Update moments with a correction signal and return safety weights.
+        """Consume per-class correction outcomes and return SIGNED safety weights.
 
         Args:
-            delta: per-class correction signal at the current step,
-                shape (num_classes,). Cast to float32 internally.
+            delta: shape (num_classes,), values in {-1, 0, +1}. Nonzero entries
+                are correction-event outcomes (F4); 0 means no event for that
+                class on this call (its state is untouched).
 
         Returns:
-            Safety weights w_k of shape (num_classes,), dtype float32.
+            w_k of shape (num_classes,), dtype float32, SIGNED.
         """
         if delta.shape != (self.num_classes,):
             raise ValueError(
                 f"delta must have shape ({self.num_classes},), "
                 f"got {tuple(delta.shape)}"
             )
-        delta = delta.to(self.m_k.dtype)
+        delta = delta.to(torch.float32)
+        valid = (delta == 0) | (delta == 1) | (delta == -1)
+        if not bool(valid.all()):
+            raise ValueError(
+                "delta entries must be correction-event outcomes in "
+                f"{{-1, 0, +1}} (memo §3, F4); got {delta.tolist()}"
+            )
 
         self.t += 1
-        t = int(self.t.item())
+        is_event = delta != 0
+        self.N_k.add_(is_event.to(self.N_k.dtype))
 
-        self.m_k.mul_(self.beta1).add_(delta, alpha=1.0 - self.beta1)
-        self.v_k.mul_(self.beta2).addcmul_(
-            delta, delta, value=1.0 - self.beta2
-        )
+        self.m_k.copy_(torch.where(
+            is_event, self.beta1 * self.m_k + (1.0 - self.beta1) * delta, self.m_k
+        ))
+        self.v_k.copy_(torch.where(
+            is_event, self.beta2 * self.v_k + (1.0 - self.beta2) * delta * delta, self.v_k
+        ))
 
-        # beta**t in Python double; underflows to 0.0 for large t, which
-        # collapses the bias-correction divisor to 1.0 (exact) -- safe.
-        m_hat = self.m_k / (1.0 - self.beta1 ** t)
-        v_hat = self.v_k / (1.0 - self.beta2 ** t)
-
-        w = self.eta * self.eta_k * m_hat / (torch.sqrt(v_hat) + self.eps)
+        w = self.eta * self.eta_k * self.m_hat / (torch.sqrt(self.v_hat) + self.eps)
 
         assert torch.isfinite(w).all(), (
             "Non-finite safety weight; check eps, v_k(0) positivity, "
-            "and delta magnitudes."
+            "and the N_k-indexed bias-correction denominators."
         )
         return w
 
     def reset(self) -> None:
-        """Restore m_k, v_k to their initialization values; reset t to 0.
+        """Restore the exact cold start: zero EMAs, zero event counts, t = 0.
 
-        For test isolation and Phase 6 multi-domain meta-learning, where
-        each new domain begins from the shared prior. eta_k is not reset
-        -- it is an immutable per-class ceiling, not a running estimate.
+        After reset, w_k = 0 for every class until new events arrive (Prop 1
+        composition: a reset estimator exerts no influence). eta_k and v_k_0
+        are immutable priors and are not touched.
         """
-        self.m_k.copy_(self.m_k_init)
-        self.v_k.copy_(self.v_k_init)
+        self.m_k.zero_()
+        self.v_k.zero_()
+        self.N_k.zero_()
         self.t.zero_()
